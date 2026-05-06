@@ -255,8 +255,8 @@ app.post("/v1/messages", async (req, res) => {
       res.end();
     });
 
-    upstreamResp.body.on("error", (err) => {
-      err("Upstream stream error:", err.message);
+    upstreamResp.body.on("error", (error) => {
+      err("Upstream stream error:", error.message);
       if (!state.messageStartSent) {
         res.write(`event: error\ndata: ${JSON.stringify({
           type: "error",
@@ -270,8 +270,8 @@ app.post("/v1/messages", async (req, res) => {
       upstreamResp.body?.destroy();
     });
 
-  } catch (err) {
-    err("Proxy error:", err.message);
+  } catch (error) {
+    err("Proxy error:", error.message);
     if (!res.headersSent) {
       return res.status(502).json({
         type: "error",
