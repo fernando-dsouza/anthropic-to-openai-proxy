@@ -1,11 +1,15 @@
 {
   "name": "anthropic-to-openai-proxy",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Anthropic Messages API to OpenAI-compatible Chat Completions proxy",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test test/**/*.test.js",
+    "test:unit": "node --test test/unit/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
+    "test:legacy": "node test-unit.js"
   },
   "keywords": [],
   "author": "",

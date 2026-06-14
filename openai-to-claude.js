@@ -46,10 +46,12 @@ function convertNonStreamingResponse(openaiResp) {
 
   // Thinking/reasoning content
   if (message.reasoning_content) {
-    content.push({
+    const thinkingBlock = {
       type: "thinking",
       thinking: message.reasoning_content,
-    });
+    };
+    if (message.reasoning_signature) thinkingBlock.signature = message.reasoning_signature;
+    content.push(thinkingBlock);
   }
 
   // Text content
@@ -336,9 +338,37 @@ function convertStreamChunk(chunk, state) {
   return results.length > 0 ? results : null;
 }
 
+function finalizeStreamState(state, stopReason = "end_turn") {
+  if (!state.messageStartSent || state.finishReason) return null;
+
+  const results = [];
+  stopThinkingBlock(state, results);
+  stopTextBlock(state, results);
+
+  for (const [, toolInfo] of state.toolCalls) {
+    results.push({
+      type: "content_block_stop",
+      index: toolInfo.blockIndex,
+    });
+  }
+
+  state.finishReason = stopReason;
+  const finalUsage = state.usage || { input_tokens: 0, output_tokens: 0 };
+
+  results.push({
+    type: "message_delta",
+    delta: { stop_reason: stopReason, stop_sequence: null },
+    usage: finalUsage,
+  });
+  results.push({ type: "message_stop" });
+
+  return results;
+}
+
 module.exports = {
   convertNonStreamingResponse,
   convertFinishReason,
   createStreamState,
   convertStreamChunk,
+  finalizeStreamState,
 };

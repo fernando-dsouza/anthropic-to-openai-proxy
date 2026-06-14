@@ -157,9 +157,12 @@ function convertClaudeMessage(msg) {
 
     for (const block of msg.content) {
       switch (block.type) {
-        case "text":
-          parts.push({ type: "text", text: block.text });
+        case "text": {
+          const part = { type: "text", text: block.text };
+          if (block.cache_control) part.cache_control = block.cache_control;
+          parts.push(part);
           break;
+        }
 
         case "image":
           if (block.source?.type === "base64") {
@@ -190,6 +193,17 @@ function convertClaudeMessage(msg) {
           // Redacted thinking still carries a signature
           if (block.signature && !thinkingSignature) thinkingSignature = block.signature;
           break;
+
+        case "document": {
+          if (block.source?.type === "text") {
+            const title = block.title || block.source.media_type || "document";
+            parts.push({ type: "text", text: `[Document: ${title}]\n${block.source.data || ""}` });
+          } else if (block.source?.type === "base64") {
+            const title = block.title || block.source.media_type || "document";
+            parts.push({ type: "text", text: `[Document: ${title}]\n${block.source.data || ""}` });
+          }
+          break;
+        }
 
         case "tool_use": {
           const toolCall = {
@@ -275,8 +289,7 @@ function convertClaudeMessage(msg) {
     if (toolCalls.length > 0) {
       const result = { role: "assistant" };
       if (parts.length > 0) {
-        result.content =
-          parts.length === 1 && parts[0].type === "text" ? parts[0].text : parts;
+        result.content = parts;
       }
       result.tool_calls = toolCalls;
       if (reasoningContent !== null) {
@@ -289,7 +302,7 @@ function convertClaudeMessage(msg) {
     if (parts.length > 0) {
       const result = {
         role,
-        content: parts.length === 1 && parts[0].type === "text" ? parts[0].text : parts,
+        content: parts,
       };
       if (reasoningContent !== null && role === "assistant") {
         result.reasoning_content = reasoningContent;
@@ -336,14 +349,19 @@ function claudeToOpenAIRequest(model, body, stream) {
   if (body.temperature !== undefined) result.temperature = body.temperature;
   if (body.top_p !== undefined) result.top_p = body.top_p;
   if (body.stop_sequences !== undefined) result.stop = body.stop_sequences;
+  if (body.response_format !== undefined) result.response_format = body.response_format;
 
   // System message
   if (body.system) {
     const systemContent = Array.isArray(body.system)
-      ? body.system.map((s) => s.text || "").join("\n")
+      ? body.system.map((s) => {
+          const part = { type: "text", text: s.text || "" };
+          if (s.cache_control) part.cache_control = s.cache_control;
+          return part;
+        }).filter((part) => part.text || part.cache_control)
       : body.system;
 
-    if (systemContent) {
+    if (Array.isArray(systemContent) ? systemContent.length > 0 : systemContent) {
       result.messages.push({ role: "system", content: systemContent });
     }
   }
